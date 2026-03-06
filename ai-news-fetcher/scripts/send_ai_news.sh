@@ -7,11 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # 获取资讯
 NEWS=$(python3 "${SCRIPT_DIR}/fetch_ai_news.py")
 
-# 发送到飞书（通过环境变量或修改下方目标）
-TARGET="${AI_NEWS_TARGET:-ou_a9e43b640456cfea394cb9d542df434d}"
-CHANNEL="${AI_NEWS_CHANNEL:-feishu}"
+# 输出资讯内容（通过 stdout 返回，cron 会自动处理）
+echo "$NEWS"
 
-echo "$NEWS" | /usr/bin/openclaw message send \
-  --channel "$CHANNEL" \
-  --target "$TARGET" \
-  --message "$NEWS" 2>&1
+# 执行完成通知（也通过 stdout）
+echo "✅ AI资讯推送任务已完成 (7:00)"
