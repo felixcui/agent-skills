@@ -40,11 +40,13 @@ pip install requests beautifulsoup4
 
 ## 使用方法
 
-### 基础用法（抓取 + 摘要 + 飞书推送）
+### 基础用法（抓取 + 摘要 + 飞书/IMA/NotebookLM 全量分发）
 
 ```bash
 python3 scripts/collect_v2.py <文章URL>
 ```
+
+> 默认情况下，如无额外说明，脚本会将结果同时推送到飞书、IMA 和 NotebookLM。
 
 示例：
 ```bash
@@ -262,13 +264,14 @@ IMA_API_BASE = "https://ima.qq.com"
 7. **推送飞书** - 推送摘要到飞书 webhook
 8. **添加 IMA** - 添加微信文章到 IMA 知识库
 
-### 标准流程（仅飞书推送）
+### 标准流程（默认全量分发）
 
 1. **抓取内容**
 2. **生成摘要**
 3. **创建 Markdown**
-4. **推送飞书**
-5. **添加 IMA**
+4. **上传 NotebookLM**
+5. **推送飞书**
+6. **添加 IMA**
 
 ## 文件结构
 
