@@ -1,126 +1,224 @@
 ---
 name: news-collect
-description: "一站式资讯收集工具：抓取文章 → 使用大模型生成摘要 → 推送到飞书。支持微信公众号文章、普通网页和飞书 Wiki（需手动处理），完全自动化处理。"
-metadata: { "openclaw": { "emoji": "📰", "requires": { "bins": ["python3", "openclaw"] } } }
+description: "一站式资讯收集工具 V2：抓取文章 → 生成摘要 → 推送飞书 → 上传NotebookLM → 生成多种格式。支持微信公众号、普通网页、Twitter/X，完全自动化处理。"
+metadata: { "openclaw": { "emoji": "📰", "requires": { "bins": ["python3", "openclaw", "claude"] } } }
 ---
 
-# News Collector - 一站式资讯收集工具
+# News Collect V2 - 增强版资讯收集工具
 
-一个脚本完成所有操作：抓取文章 → 使用大模型生成摘要 → 推送到飞书多维表格。
+一个脚本完成所有操作：抓取文章 → 生成摘要 → 推送飞书 → 上传NotebookLM → 生成多种格式
+
+## 🆕 V2 新增功能
+
+- ✅ **NotebookLM 深度集成**：自动上传到「AI 资讯」笔记本
+- ✅ **多格式生成**：支持报告、思维导图、PPT、播客、Quiz
+- ✅ **批量处理**：支持从文件批量处理多个URL
+- ✅ **改进的微信抓取**：使用requests+BeautifulSoup，更稳定
+- ✅ **智能输出控制**：灵活选择推送目标（飞书/NotebookLM/两者）
 
 ## 功能特点
 
 - ✅ **一站式处理**：一个命令完成抓取、摘要、推送全流程
-- ✅ **大模型摘要**：使用 OpenClaw 或 Claude Code 生成高质量摘要
-- ✅ **支持多源**：微信公众号文章、普通网页自动识别
+- ✅ **大模型摘要**：使用 Claude Code 生成高质量摘要
+- ✅ **支持多源**：微信公众号、普通网页、Twitter/X 自动识别
 - ✅ **自动降级**：如果大模型不可用，自动使用规则生成摘要
-- ✅ **自动推送**：直接推送到飞书 webhook
+- ✅ **自动推送**：支持飞书 webhook 推送
+- ✅ **NotebookLM 集成**：直接上传并生成多种格式
 
 ## 前置要求
 
 - Python 3.6+
 - OpenClaw CLI 或 Claude Code CLI（用于生成摘要）
+- NotebookLM CLI（新增，Python 3.14 版本）
+- requests 库：`pip install requests beautifulsoup4`
 
-安装方式（二选一）：
+安装依赖：
 ```bash
-# 方式1：使用 OpenClaw（推荐）
-npm install -g openclaw@latest
-
-# 方式2：使用 Claude Code
-npm install -g @anthropic-ai/claude-code
+pip install requests beautifulsoup4
 ```
 
 ## 使用方法
 
-### 基础用法（抓取 + 大模型摘要 + 推送）
+### 基础用法（抓取 + 摘要 + 飞书推送）
 
 ```bash
-python3 scripts/collect.py <文章URL>
+python3 scripts/collect_v2.py <文章URL>
 ```
 
 示例：
 ```bash
-python3 scripts/collect.py "https://mp.weixin.qq.com/s/nhzMNSc_-TQefSLz9Gb08A"
+python3 scripts/collect_v2.py "https://mp.weixin.qq.com/s/nhzMNSc_-TQefSLz9Gb08A"
+```
+
+### 上传到 NotebookLM
+
+```bash
+python3 scripts/collect_v2.py <URL> --notebook
+```
+
+### 生成 NotebookLM 格式
+
+```bash
+# 生成报告
+python3 scripts/collect_v2.py <URL> --notebook --format report
+
+# 生成思维导图
+python3 scripts/collect_v2.py <URL> --notebook --format mind-map
+
+# 生成 PPT
+python3 scripts/collect_v2.py <URL> --notebook --format slide-deck
+
+# 生成播客
+python3 scripts/collect_v2.py <URL> --notebook --format audio
+
+# 生成 Quiz
+python3 scripts/collect_v2.py <URL> --notebook --format quiz
+```
+
+### 批量处理
+
+```bash
+# 创建URL文件
+echo "https://mp.weixin.qq.com/s/url1" > urls.txt
+echo "https://example.com/article2" >> urls.txt
+
+# 批量处理
+python3 scripts/collect_v2.py --batch urls.txt
 ```
 
 ### 仅抓取不推送
 
 ```bash
-python3 scripts/collect.py <文章URL> --no-push
+python3 scripts/collect_v2.py <URL> --no-push
 ```
 
 ### 自定义 webhook
 
 ```bash
-python3 scripts/collect.py <文章URL> --webhook "https://your-webhook-url"
+python3 scripts/collect_v2.py <URL> --webhook "https://your-webhook-url"
 ```
 
 ### 调整摘要长度
 
 ```bash
-python3 scripts/collect.py <文章URL> --summary-length 150
+python3 scripts/collect_v2.py <URL> --summary-length 150
 ```
 
 ## 输出示例
 
+### 基础输出（仅飞书推送）
 ```
-🚀 开始抓取: https://mp.weixin.qq.com/s/...
+🚀 开始处理: https://mp.weixin.qq.com/s/...
+============================================================
+
+[1/5] 抓取内容...
 ✅ 抓取成功: 🦞 写作、排版、发布一条龙...
    作者: AI工具进化论
-📝 生成摘要（使用大模型）...
+
+[2/5] 生成摘要...
+   使用 Claude Code 生成摘要...
+   生成摘要完成 (156字)
 ✅ 摘要生成完成 (156字)
 
-==================================================
-📋 收集结果:
-==================================================
+[3/5] 创建 Markdown...
+✅ Markdown 创建完成
+
+[4/5] 推送到飞书...
+✅ 推送成功！
+
+[5/5] 添加到 IMA 知识库...
+   ✅ 已添加到 IMA「AI资讯」知识库
+
+============================================================
+📋 处理结果:
+============================================================
 {
   "url": "https://mp.weixin.qq.com/s/...",
   "title": "🦞 写作、排版、发布一条龙...",
   "author": "AI工具进化论",
-  "publish_time": "2026-03-15 20:33:23",
-  "summary": "作者分享了使用OpenClaw+Claude Code+wenyan-cli搭建全自动化公众号写作系统的经验，实现选题、写作、配图、排版、发布全流程自动化。建议主文章人工把控质量，次条三条用自动化，每天30-60分钟即可完成内容生产。"
+  "summary": "作者分享了使用OpenClaw+Claude Code+wenyan-cli搭建全自动化公众号写作系统的经验...",
+  "notebooklm": false
 }
 
-📤 推送到飞书...
+✨ 完成!
+```
+
+### NotebookLM 输出
+```
+🚀 开始处理: https://mp.weixin.qq.com/s/...
+============================================================
+
+[1/5] 抓取内容...
+✅ 抓取成功: Harness Engineering详解
+
+[2/5] 生成摘要...
+   使用 Claude Code 生成摘要...
+   生成摘要完成 (156字)
+✅ 摘要生成完成 (156字)
+
+[3/5] 创建 Markdown...
+✅ Markdown 创建完成
+
+[4/5] 上传到 NotebookLM...
+   创建 NotebookLM 笔记本「AI 资讯」...
+   ✅ 笔记本创建成功
+   上传到 NotebookLM...
+   ✅ 上传成功
+
+[5/5] 生成 NotebookLM 格式...
+   生成 report...
+   ✅ report 生成已启动
+
+等待生成完成（约30秒）...
+   下载 report...
+   ✅ 下载成功
+✅ 文件已保存到 /tmp/news_collect_output
+
+[5/5] 推送到飞书...
 ✅ 推送成功！
+
+[5/5] 添加到 IMA 知识库...
+   ✅ 已添加到 IMA「AI资讯」知识库
+
+============================================================
+📋 处理结果:
+============================================================
+{
+  "url": "https://mp.weixin.qq.com/s/...",
+  "title": "Harness Engineering详解",
+  "author": "Friday",
+  "summary": "Ryan Lopopolo在伦敦这场演讲里，真正讲透的不是\"code is free\"...",
+  "notebooklm": true
+}
 
 ✨ 完成!
 ```
 
 ## 支持的来源
 
-| 来源类型 | 自动识别 | 支持内容 |
-|---------|---------|---------|
-| 微信公众号 | ✅ | 标题、作者、发布时间、正文 |
-| 普通网页 | ✅ | 标题、正文 |
-| 飞书 Wiki | ⚠️ | 需要手动处理（见下方说明） |
-
-### 飞书 Wiki 链接处理
-
-飞书 Wiki 链接需要特殊处理，因为需要通过飞书 API 获取内容，且需要当前会话的用户授权。
-
-当在命令行中使用 news-collect 处理飞书 Wiki 链接时，脚本会提示：
-
-```
-⚠️  飞书 Wiki 链接检测
-   飞书 Wiki 需要在当前 OpenClaw 会话中处理，请直接发送链接给我，我会自动获取内容并推送
-
-   URL: https://waytoagi.feishu.cn/wiki/xxx
-```
-
-**正确处理方式：**
-- 直接在 OpenClaw 对话中发送飞书 Wiki 链接
-- 我会自动调用 `feishu_fetch_doc` 工具获取内容
-- 生成摘要并推送到飞书多维表格
-
-**为什么需要这样处理？**
-- `feishu_fetch_doc` 工具需要用户 OAuth 授权
-- 授权仅在当前会话中有效
-- 独立 Python 脚本无法访问当前会话的授权状态
+| 来源类型 | 自动识别 | 支持内容 | NotebookLM |
+|---------|---------|---------|-----------|
+| 微信公众号 | ✅ | 标题、作者、发布时间、正文 | ✅ |
+| 普通网页 | ✅ | 标题、正文 | ✅ |
+| Twitter/X | ✅ | 标题、作者、正文 | ✅ |
 
 ## 配置
 
-默认 webhook 地址（可在脚本中修改）：
+### NotebookLM 配置
+
+默认使用 Python 3.14 版本的 NotebookLM：
+```python
+NOTEBOOKLM = "/opt/homebrew/bin/python3.14 -m notebooklm"
+NOTEBOOK_NAME = "AI 资讯"
+```
+
+首次使用前请确保已完成 NotebookLM 认证：
+```bash
+/opt/homebrew/bin/python3.14 -m notebooklm login
+```
+
+### 飞书 Webhook 配置
+
 ```python
 WEBHOOK_URL = "https://www.feishu.cn/flow/api/trigger-webhook/4ebcdc4fd26c38187fdd74434d17a916"
 ```
@@ -130,45 +228,70 @@ WEBHOOK_URL = "https://www.feishu.cn/flow/api/trigger-webhook/4ebcdc4fd26c38187f
 - `title`: 文章标题
 - `summary`: 生成的摘要（由大模型生成）
 
+### IMA 知识库配置
+
+```python
+IMA_KB_ID = "AGoC5oEY8FP12VotR1kff00HlmJyh3RP6Do9vCGKpGQ="
+IMA_CONFIG_PATH = Path.home() / ".config" / "ima"
+IMA_API_BASE = "https://ima.qq.com"
+```
+
 ## 参数说明
 
 | 参数 | 说明 | 默认值 |
 |-----|------|-------|
-| `url` | 文章链接（必填） | - |
-| `--webhook` | 自定义飞书 webhook | 内置地址 |
-| `--no-push` | 仅抓取，不推送 | False |
+| `url` | 文章URL（支持多个） | - |
+| `--webhook` | 自定义飞书webhook | 内置地址 |
+| `--no-push` | 不推送到飞书，仅输出结果 | False |
 | `--summary-length` | 摘要最大长度 | 200 |
+| `--notebook` | 上传到 NotebookLM | False |
+| `--format` | NotebookLM 生成格式 | - |
+| `--batch` | 批量处理URL文件 | - |
 
-## 摘要生成逻辑
+## 工作流程
 
-1. **优先使用 OpenClaw**：调用 `openclaw run` 命令生成高质量摘要
-2. **备选 Claude Code**：如果 OpenClaw 不可用，尝试使用 `claude -p`
-3. **自动降级**：如果都不可用，自动使用规则生成摘要
-4. **智能清理**：自动去除 emoji、代码片段、URL 等干扰内容
-5. **长度控制**：严格控制在指定字数范围内
+### 完整流程（NotebookLM 模式）
+
+1. **抓取内容** - 自动识别来源类型并抓取
+2. **生成摘要** - 使用 Claude Code 高质量摘要
+3. **创建 Markdown** - 标准化格式
+4. **上传 NotebookLM** - 自动创建「AI 资讯」笔记本并上传
+5. **生成格式** - 根据参数生成报告/思维导图/PPT/播客/Quiz
+6. **下载文件** - 下载生成的文件到 `/tmp/news_collect_output`
+7. **推送飞书** - 推送摘要到飞书 webhook
+8. **添加 IMA** - 添加微信文章到 IMA 知识库
+
+### 标准流程（仅飞书推送）
+
+1. **抓取内容**
+2. **生成摘要**
+3. **创建 Markdown**
+4. **推送飞书**
+5. **添加 IMA**
 
 ## 文件结构
 
 ```
 news_collect/
-├── SKILL.md                  # 技能文档
+├── SKILL.md                    # 技能文档
 └── scripts/
-    ├── collect.py            # ⭐ 主脚本（一站式）
-    ├── fetch_feishu_wiki.py  # 飞书 Wiki 抓取辅助脚本
-    └── fetch_content.py      # 旧版（保留兼容）
+    ├── collect_v2.py            # ⭐ V2 主脚本（增强版）
+    ├── collect.py                # V1 原版（保留兼容）
+    ├── fetch_feishu_wiki.py     # 飞书 Wiki 抓取辅助
+    └── fetch_content.py          # 旧版（保留兼容）
 ```
 
 ## 更新日志
 
-### v2.1 (2026-03-18)
-- 新增：支持飞书 Wiki 链接检测
-- 新增：自动提示用户在当前会话中处理飞书 Wiki 链接
-- 优化：改进了飞书 Wiki 的处理流程说明
-
-### v2.0 (2026-03-15)
-- 新增：使用 Claude Code 大模型生成摘要
-- 新增：自动降级机制（Claude 失败时使用规则生成）
-- 优化：摘要质量大幅提升，更准确地提取核心观点
+### v2.0 (2026-04-20)
+- ✨ 新增：NotebookLM 深度集成
+- ✨ 新增：支持生成报告、思维导图、PPT、播客、Quiz
+- ✨ 新增：批量处理功能
+- 🔧 改进：微信文章抓取稳定性
+- 🔧 改进：智能输出控制（灵活选择推送目标）
+- 🔧 改进：摘要生成逻辑优化
 
 ### v1.0
-- 基础功能：抓取、规则摘要、推送
+- 基础功能：抓取、摘要、推送
+- 支持微信公众号、网页、飞书 Wiki
+- IMA 知识库集成
