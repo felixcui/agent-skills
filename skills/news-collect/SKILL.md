@@ -15,6 +15,7 @@ metadata: { "openclaw": { "emoji": "📰", "requires": { "bins": ["python3", "op
 - ✅ **批量处理**：支持从文件批量处理多个URL
 - ✅ **改进的微信抓取**：使用requests+BeautifulSoup，更稳定
 - ✅ **智能输出控制**：灵活选择推送目标（飞书/NotebookLM/两者）
+- ✅ **默认投递**：在无特殊说明时，默认同时推送到飞书、IMA 和 NotebookLM
 
 ## 功能特点
 

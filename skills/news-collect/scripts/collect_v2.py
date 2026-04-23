@@ -569,7 +569,7 @@ def sanitize_filename(text):
     """清理文件名中的特殊字符。"""
     text = re.sub(r'[\/:*?"<>|]+', '', text)
     text = re.sub(r'\s+', '', text).strip()
-    text = re.sub(r'[ -]+', '', text)
+    text = re.sub(r'[\x00-\x1f]+', '', text)
     return text
 
 
