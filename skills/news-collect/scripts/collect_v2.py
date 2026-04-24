@@ -439,21 +439,12 @@ def setup_notebooklm_notebook():
         return False
 
 
-def upload_to_notebooklm(markdown_content, title):
-    """上传内容到 NotebookLM"""
+def upload_to_notebooklm(file_path, title):
+    """上传本地 Markdown 文件到 NotebookLM"""
     try:
-        # 创建临时文件
-        import tempfile
-        safe_title = re.sub(r'[\\/:*?"<>|]', '_', title)[:80]
-        temp_file = tempfile.mktemp(suffix='.md', prefix=f'news_{safe_title}_')
-        
-        with open(temp_file, 'w', encoding='utf-8') as f:
-            f.write(markdown_content)
-        
-        # 上传到 NotebookLM
         print(f"   上传到 NotebookLM...")
         result = subprocess.run(
-            [NOTEBOOKLM_CMD, 'source', 'add', temp_file, '--title', title],
+            [NOTEBOOKLM_CMD, 'source', 'add', str(file_path), '--title', title],
             capture_output=True,
             text=True
         )
@@ -633,8 +624,8 @@ def main():
     summary = generate_summary_with_llm(data['content'], data['title'], args.summary_length)
     print(f"✅ 摘要生成完成 ({len(summary)}字)")
     
-    # 3. 创建 Markdown
-    print("\n[3/5] 创建 Markdown...")
+    # 3. 创建 Markdown 并保存到本地
+    print("\n[3/5] 创建并保存 Markdown...")
     markdown_content = create_markdown_content(
         data['title'],
         data.get('author', ''),
@@ -642,20 +633,16 @@ def main():
         summary,
         data['content']
     )
-    print("✅ Markdown 创建完成")
-
-    # 3.1 存储原始 Markdown
-    print("\n[3.1/5] 存储原始 Markdown...")
     raw_path = save_raw_markdown(data['title'], markdown_content)
     print(f"✅ 已保存到: {raw_path}")
     
-    # 4. 上传到 NotebookLM
+    # 4. 上传到 NotebookLM（复用本地文件）
     if args.notebook and not args.no_notebook:
         print("\n[4/5] 上传到 NotebookLM...")
         setup_success = setup_notebooklm_notebook()
         
         if setup_success:
-            upload_success = upload_to_notebooklm(markdown_content, data['title'])
+            upload_success = upload_to_notebooklm(raw_path, raw_path.stem)
             
             if not upload_success:
                 print("⚠️ NotebookLM 上传失败，但继续其他操作")
