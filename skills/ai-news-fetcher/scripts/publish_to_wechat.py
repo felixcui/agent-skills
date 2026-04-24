@@ -140,10 +140,10 @@ class WeChatNewsPublisher:
         temp_md.write_text(markdown_content, encoding='utf-8')
         
         try:
-            # 使用 npx bun 调用 main.ts
+            # 使用 bun 调用 main.ts
             result = subprocess.run(
                 [
-                    "npx", "-y", "bun", str(baoyu_main),
+                    "bun", str(baoyu_main),
                     str(temp_md),
                     "--theme", "default"  # 使用默认主题
                 ],
