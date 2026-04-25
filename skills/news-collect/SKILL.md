@@ -107,6 +107,13 @@ python3 scripts/collect_v2.py <URL> --webhook "https://your-webhook-url"
 python3 scripts/collect_v2.py <URL> --summary-length 150
 ```
 
+### 自定义文章保存路径
+
+```bash
+python3 scripts/collect_v2.py <URL> --output-dir ~/Desktop/my_news
+```
+> 默认会将抓取的文章 Markdown 存储到 `~/work/github/media-conent/raw` 目录中。支持 `~/` 写法。
+
 ## 输出示例
 
 ### 基础输出（仅飞书推送）

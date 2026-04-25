@@ -578,9 +578,12 @@ def unique_raw_markdown_path(raw_dir, base_name):
         idx += 1
 
 
-def save_raw_markdown(title, markdown_content):
-    """将抓取到的文章 Markdown 存储到 raw 目录。"""
-    raw_dir = Path('/Users/felix/work/media-conent/raw')
+def save_raw_markdown(title, markdown_content, output_dir=None):
+    """将抓取到的文章 Markdown 存储到指定目录。"""
+    if output_dir:
+        raw_dir = Path(output_dir).expanduser()
+    else:
+        raw_dir = Path('~/work/github/media-conent/raw').expanduser()
     raw_dir.mkdir(parents=True, exist_ok=True)
 
     today = datetime.now().strftime('%Y-%m-%d')
@@ -600,6 +603,7 @@ def main():
     parser.add_argument('--notebook', action='store_true', default=True, help='上传到 NotebookLM（默认开启）')
     parser.add_argument('--no-notebook', action='store_true', help='不上传到 NotebookLM')
     parser.add_argument('--summary-length', type=int, default=200, help='摘要长度（默认200字）')
+    parser.add_argument('--output-dir', help='自定义文章存储目录，支持 ~ 写法。默认: ~/work/github/media-conent/raw')
     
     args = parser.parse_args()
     
@@ -633,7 +637,7 @@ def main():
         summary,
         data['content']
     )
-    raw_path = save_raw_markdown(data['title'], markdown_content)
+    raw_path = save_raw_markdown(data['title'], markdown_content, args.output_dir)
     print(f"✅ 已保存到: {raw_path}")
     
     # 4. 上传到 NotebookLM（复用本地文件）
