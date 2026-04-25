@@ -279,6 +279,32 @@ IMA_API_BASE = "https://ima.qq.com"
 4. **上传 NotebookLM**
 5. **推送飞书**
 6. **添加 IMA**
+7. **同步 Wiki** — 每次采集后必须执行：
+   - 将原始文章 markdown 从 `raw/` 目录软链接到 `/Users/felix/wiki/raw/articles/`（文件名格式：`YYYY-MM-DD-slug.md`）
+   - 使用 `delegate_task` 分析文章内容，在 `/Users/felix/wiki/` 中创建或更新相关页面（实体页 `entities/` + 概念页 `concepts/`）
+   - 更新 `/Users/felix/wiki/index.md` 和 `/Users/felix/wiki/log.md`
+   - 页面创建标准参照 `/Users/felix/wiki/SCHEMA.md`
+
+## 常见问题与解决方案
+
+### 飞书 Wiki 链接抓取不完整
+
+`collect_v2.py` 对飞书 Wiki 链接（`my.feishu.cn/wiki/` 或 `waytoagi.feishu.cn/wiki/`）可能抓取不完整（需要登录态），表现为文件只有十几行、标题为"未知标题"。
+
+**解决流程**：
+1. 用 `lark-cli docs +fetch --doc "<token或URL>" --format json --limit 10000` 获取完整内容
+2. 用 Python 清理飞书特殊标签（`<image>`、`<view>`、`<file>`），替换 unicode 转义
+3. 手动重建 markdown 文件（带标准 frontmatter：标题、来源、摘要、正文）
+4. NotebookLM 上传时，中文文件名可能导致失败，需先 `cp` 为 ASCII 文件名再上传
+
+### NotebookLM 上传失败
+
+中文文件名（含括号等特殊字符）可能导致 `notebooklm source add` 报 `Error:`。解决：先复制为英文文件名再上传。
+
+```bash
+cp "中文文件名.md" /tmp/english-name.md
+/opt/homebrew/bin/python3.14 -m notebooklm source add /tmp/english-name.md
+```
 
 ## 文件结构
 

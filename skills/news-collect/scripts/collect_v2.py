@@ -45,46 +45,86 @@ def is_feishu_doc(url):
 
 
 def fetch_feishu_doc(url):
-    """抓取飞书文档 - 使用 feishu_fetch_doc 工具"""
+    """抓取飞书文档 - 使用 lark-cli docs +fetch"""
     try:
-        # 提取 doc_id
-        if '/docx/' in url:
-            doc_id = url.split('/docx/')[-1]
-        elif '/wiki/' in url:
-            doc_id = url.split('/wiki/')[-1]
+        # 提取 doc_id（支持 /docx/ 和 /wiki/ 格式，去除查询参数）
+        clean_url = url.split('?')[0].split('#')[0]
+        if '/docx/' in clean_url:
+            doc_id = clean_url.split('/docx/')[-1]
+        elif '/wiki/' in clean_url:
+            doc_id = clean_url.split('/wiki/')[-1]
         else:
             return {"error": "无法识别的飞书文档 URL"}
-        
-        # 调用 feishu_fetch_doc
-        result = subprocess.run(
-            ['claude', '-p', '--permission-mode', 'bypassPermissions', '--output-format', 'text', 
-             f'Use the feishu_fetch_doc tool to get the content of Feishu document with ID: {doc_id}'],
-            capture_output=True,
-            text=True,
-            timeout=60
-        )
-        
-        if result.returncode != 0:
-            return {"error": f"feishu_fetch_doc 调用失败: {result.stderr}"}
-        
-        # 从结果中提取内容
-        content = result.stdout.strip()
-        
-        # 提取标题（第一行）
-        lines = content.split('\n')
-        title = "未知标题"
-        for line in lines:
-            if line.startswith('# '):
-                title = line[2:].strip()
+
+        # 使用 lark-cli 获取文档内容（自动分页）
+        all_markdown = ""
+        offset = "0"
+        doc_title = ""
+
+        for _ in range(20):  # 最多 20 页，防止无限循环
+            result = subprocess.run(
+                ['lark-cli', 'docs', '+fetch', '--doc', doc_id,
+                 '--format', 'json', '--limit', '10000',
+                 '--offset', offset],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+            if result.returncode != 0:
+                return {"error": f"lark-cli 调用失败: {result.stderr.strip()}"}
+
+            try:
+                resp = json.loads(result.stdout)
+            except json.JSONDecodeError:
+                return {"error": f"lark-cli 返回非 JSON: {result.stdout[:200]}"}
+
+            if not resp.get('ok'):
+                return {"error": f"lark-cli API 错误: {resp}"}
+
+            data = resp['data']
+            if not doc_title and data.get('title'):
+                doc_title = data['title'].strip()
+
+            chunk = data.get('markdown', '')
+            all_markdown += chunk
+
+            if not data.get('has_more'):
                 break
-        
+            offset = str(data.get('next_offset', data.get('length', '0')))
+
+        if not all_markdown.strip():
+            return {"error": "飞书文档内容为空（可能无权限访问）"}
+
+        # 清理飞书特殊标签（image / view / file / mention-doc 等）
+        all_markdown = re.sub(r'<image[^/]*/>', '', all_markdown)
+        all_markdown = re.sub(r'<view[^>]*>.*?</view>', '', all_markdown, flags=re.DOTALL)
+        all_markdown = re.sub(r'<file[^/]*/>', '', all_markdown)
+        all_markdown = re.sub(r'<mention-doc[^>]*>(.*?)</mention-doc>', r'\1', all_markdown)
+        # 修复 lark-cli 转义的 unicode
+        all_markdown = all_markdown.replace('\\u003c', '<').replace('\\u003e', '>')
+        all_markdown = all_markdown.replace('\\u0026', '&')
+
+        # 从 markdown 中提取标题（如果没有从 API 拿到）
+        if not doc_title:
+            for line in all_markdown.split('\n'):
+                if line.startswith('# '):
+                    doc_title = line[2:].strip()
+                    break
+        if not doc_title:
+            doc_title = "未知标题"
+
         return {
-            "title": title,
+            "title": doc_title,
             "author": "",
             "publish_time": "",
-            "content": content,
+            "content": all_markdown.strip(),
             "url": url
         }
+    except subprocess.TimeoutExpired:
+        return {"error": "lark-cli 超时"}
+    except FileNotFoundError:
+        return {"error": "lark-cli 未安装"}
     except Exception as e:
         return {"error": f"抓取失败: {str(e)}"}
 
