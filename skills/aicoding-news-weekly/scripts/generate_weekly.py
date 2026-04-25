@@ -24,7 +24,8 @@ except ImportError:
     pass
 
 # 默认输出目录：优先从 env 读取，如果没有则使用 skill 内部的 output/ 子目录
-DEFAULT_OUTPUT_DIR = os.getenv("OUTPUT_DIR", os.path.join(SKILL_DIR, "output"))
+env_output_dir = os.getenv("OUTPUT_DIR")
+DEFAULT_OUTPUT_DIR = os.path.expanduser(env_output_dir) if env_output_dir else os.path.join(SKILL_DIR, "output")
 
 # 导入 API 客户端
 try:
@@ -280,6 +281,12 @@ def generate_weekly_report(
     Returns:
         生成的文件路径
     """
+    # 支持 ~ 目录展开
+    if output_file:
+        output_file = os.path.expanduser(output_file)
+    if output_dir:
+        output_dir = os.path.expanduser(output_dir)
+
     # 确定输出路径：--output > --output-dir > 默认目录
     if output_file is None:
         target_dir = output_dir if output_dir else DEFAULT_OUTPUT_DIR
