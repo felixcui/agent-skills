@@ -15,8 +15,16 @@ from datetime import datetime, timedelta
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # Skill 根目录：aicoding-news-weekly/
 SKILL_DIR = os.path.dirname(SCRIPT_DIR)
-# 默认输出目录：skill 内部的 output/ 子目录
-DEFAULT_OUTPUT_DIR = os.path.join(SKILL_DIR, "output")
+# 加载环境变量
+try:
+    from dotenv import load_dotenv
+    env_file = os.path.join(SKILL_DIR, ".env")
+    load_dotenv(env_file)
+except ImportError:
+    pass
+
+# 默认输出目录：优先从 env 读取，如果没有则使用 skill 内部的 output/ 子目录
+DEFAULT_OUTPUT_DIR = os.getenv("OUTPUT_DIR", os.path.join(SKILL_DIR, "output"))
 
 # 导入 API 客户端
 try:

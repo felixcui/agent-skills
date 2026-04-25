@@ -47,7 +47,8 @@ python aicoding-news-weekly/scripts/generate_weekly.py --preview
 |--------|------|------|
 | 1      | `--output path/to/report.md` | 直接指定完整输出文件路径 |
 | 2      | `--output-dir path/to/dir` | 指定输出目录，文件名自动生成为 `<结束日期>.md` |
-| 3      | 默认 | skill 内部的 `output/` 目录 |
+| 3      | 环境变量 `OUTPUT_DIR` | 读取 `.env` 或环境变量中配置的 `OUTPUT_DIR` |
+| 4      | 默认 | skill 内部的 `output/` 目录 |
 
 ## 自定义选项
 
@@ -114,6 +115,10 @@ FEISHU_APP_SECRET=xxxxxxxxxxxxxxxx
 # 注意：需要认证的服务号，并在公众号后台设置服务器 IP 白名单
 WECHAT_APPID=你的AppID
 WECHAT_APPSECRET=你的AppSecret
+
+# ---- 输出目录配置（可选） ----
+# 自定义周报文件的默认输出路径
+# OUTPUT_DIR=/your/custom/path/output
 ```
 
 | 变量名 | 必要性 | 说明 |
@@ -122,6 +127,7 @@ WECHAT_APPSECRET=你的AppSecret
 | `FEISHU_APP_SECRET` | **必填** | 飞书应用的 App Secret |
 | `WECHAT_APPID` | 可选 | 微信公众号 AppID，仅 `--weixin` 模式需要 |
 | `WECHAT_APPSECRET` | 可选 | 微信公众号 AppSecret，仅 `--weixin` 模式需要 |
+| `OUTPUT_DIR` | 可选 | 自定义周报文件的默认输出目录 |
 
 ### Python 依赖
 
