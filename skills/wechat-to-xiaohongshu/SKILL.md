@@ -37,63 +37,50 @@ mkdir -p "$OUTPUT_DIR"
 
 ### 步骤 1：保存公众号文章
 
-使用 `baoyu-url-to-markdown` skill 抓取并保存文章内容。
+使用 `defuddle` 命令抓取并提取文章内容，转换为 Markdown 格式。
 
-#### 1.1 确定运行时和脚本路径
-
-```bash
-# 确定 bun 运行时
-if command -v bun &> /dev/null; then
-  BUN_X="bun"
-elif command -v npx &> /dev/null; then
-  BUN_X="npx -y bun"
-else
-  # 提示用户安装 bun
-fi
-
-# baoyu-url-to-markdown 脚本路径
-URL_TO_MD_SCRIPT="<baoyu-url-to-markdown skill 路径>/scripts/main.ts"
-```
-
-#### 1.2 执行抓取
+#### 1.1 获取文章内容和元数据
 
 ```bash
-# 使用 --output-dir 指定输出目录（自动生成文件名）
-$BUN_X "$URL_TO_MD_SCRIPT" "$ARTICLE_URL" --output-dir "$OUTPUT_DIR"
-```
+# 获取当前日期（YYYY-MM-DD 格式）
+CURRENT_DATE=$(date +%Y-%m-%d)
 
-脚本会自动从页面提取标题并生成文件。
+# 使用 defuddle 获取文章 JSON 数据（包含元数据和 Markdown 正文）
+# 确保系统已安装 defuddle
+ARTICLE_JSON=$(defuddle parse -j --md "$ARTICLE_URL")
 
-**输出说明**:
-- Markdown 文件: `$OUTPUT_DIR/mp.weixin.qq.com/{slug}.md`（初始输出）
-- HTML 快照: `$OUTPUT_DIR/mp.weixin.qq.com/{slug}-captured.html`
-
-#### 1.3 重命名文件（使用日期+文章标题）
-
-从保存的 Markdown 文件的 YAML front matter 中提取 `title`，然后重命名文件，添加日期前缀：
-
-```bash
-# 定位初始保存的文件
-INITIAL_MD=$(ls -t "$OUTPUT_DIR/mp.weixin.qq.com/"*.md 2>/dev/null | grep -v captured | head -1)
-
-# 从 YAML front matter 提取标题
-ARTICLE_TITLE=$(grep -m1 "^title:" "$INITIAL_MD" | sed 's/^title: *//' | tr -d '"')
+# 使用 jq 解析元数据（需确保系统已安装 jq）
+ARTICLE_TITLE=$(echo "$ARTICLE_JSON" | jq -r '.title // "未知标题"')
+ARTICLE_AUTHOR=$(echo "$ARTICLE_JSON" | jq -r '.author // "未知作者"')
+ARTICLE_PUB=$(echo "$ARTICLE_JSON" | jq -r '.published // ""')
+ARTICLE_DESC=$(echo "$ARTICLE_JSON" | jq -r '.description // ""')
 
 # 清理标题中的非法字符（用于文件名）
 CLEAN_TITLE=$(echo "$ARTICLE_TITLE" | sed 's/[\/\\:*?"<>|]//g')
 
-# 获取当前日期（YYYY-MM-DD 格式）
-CURRENT_DATE=$(date +%Y-%m-%d)
-
-# 重命名文件到 output 目录根目录（添加日期前缀）
-mv "$INITIAL_MD" "$OUTPUT_DIR/${CURRENT_DATE}_${CLEAN_TITLE}.md"
-#mv "${INITIAL_MD%.md}-captured.html" "$OUTPUT_DIR/${CURRENT_DATE}_${CLEAN_TITLE}-captured.html" 2>/dev/null || true
-
-# 删除空的域名子目录
-rmdir "$OUTPUT_DIR/mp.weixin.qq.com" 2>/dev/null || true
-
 # 最终文件路径
 SAVED_MD="$OUTPUT_DIR/${CURRENT_DATE}_${CLEAN_TITLE}.md"
+```
+
+#### 1.2 保存 Markdown 内容
+
+构建带有 YAML front matter 的完整 Markdown 文件：
+
+```bash
+# 提取 Markdown 正文
+ARTICLE_CONTENT=$(echo "$ARTICLE_JSON" | jq -r '.content // ""')
+
+# 将元数据和正文写入 Markdown 文件
+cat > "$SAVED_MD" << EOF
+---
+title: "$ARTICLE_TITLE"
+author: "$ARTICLE_AUTHOR"
+date: "$ARTICLE_PUB"
+description: "$ARTICLE_DESC"
+---
+
+$ARTICLE_CONTENT
+EOF
 ```
 
 ### 步骤 2：读取保存的文章
@@ -101,7 +88,7 @@ SAVED_MD="$OUTPUT_DIR/${CURRENT_DATE}_${CLEAN_TITLE}.md"
 从输出目录读取刚保存的 Markdown 文件，提取内容用于转换。
 
 ```bash
-# 使用步骤 1.3 中确定的文件路径
+# 使用步骤 1.1 中确定的文件路径
 # SAVED_MD 变量已设置为 "$OUTPUT_DIR/${CURRENT_DATE}_${CLEAN_TITLE}.md"
 ```
 
@@ -437,4 +424,4 @@ wechat-to-xiaohongshu/
 - 避免过度营销化，保持内容真实
 - 技术类内容保持专业性，不过度娱乐化
 - **输出目录**：默认为 `wechat-to-xiaohongshu/output/`，可在调用时通过 `--output-dir` 参数自定义
-- **依赖**：需要安装 `bun` 运行时，用于执行 `baoyu-url-to-markdown` 脚本
+- **依赖**：需要安装 `defuddle` 用于网页解析，以及 `jq` 用于处理 JSON 数据
