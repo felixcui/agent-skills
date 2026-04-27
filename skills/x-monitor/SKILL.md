@@ -154,6 +154,8 @@ deliver: origin
 - 如果本次有新推文但没收到飞书，重点排查外层发送步骤，而不是抓取脚本本身。
 - 状态文件会阻止重复推送同一条推文。
 - `lark-cli im +messages-send` 报 `validation` 错误：检查是否缺少 `--as bot` 参数。
+- **opencli twitter search 输出格式**：返回扁平 JSON 数组，`author` 是字符串（非对象），`likes`/`views` 等可能是字符串或整数。fetch_ai_trending.py 已用 `_to_int()` 和 `isinstance` 兼容处理。如果 opencli 更新了输出格式，优先检查 parse_tweet 函数。
+- **Claude Code 生成 opencli 相关代码时**：Claude Code 不了解 opencli 的实际输出格式，生成的解析代码经常假设嵌套结构（如 `t.get("metrics", {}).get("likes")`），需要人工验证并修复为扁平结构。建议让 Claude Code 先用 `opencli twitter search --limit 1 -f json` 看实际输出再写代码。
 
 ## Cron 任务
 
