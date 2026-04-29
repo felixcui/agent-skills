@@ -822,7 +822,8 @@ def main():
     # 4. 上传到 NotebookLM（复用本地文件）
     if args.notebook and not args.no_notebook:
         print("\n[4/5] 上传到 NotebookLM...")
-        setup_success = setup_notebooklm_notebook()
+        # setup_success = setup_notebooklm_notebook()
+        setup_success = True 
         
         if setup_success:
             upload_success = upload_to_notebooklm(raw_path, raw_path.stem)
