@@ -11,6 +11,7 @@ import urllib.parse
 import argparse
 import subprocess
 import requests
+import yaml
 from datetime import datetime
 from pathlib import Path
 from bs4 import BeautifulSoup
@@ -306,13 +307,25 @@ def fetch_article(url):
 
 # ============ 摘要生成 ============
 
-def generate_summary_with_llm(content, title="", max_length=200):
-    """使用 Claude Code 生成文章摘要"""
+def _load_hermes_config():
+    """从 Hermes 配置文件加载 LLM API 配置"""
+    config_paths = [
+        Path.home() / ".hermes" / "config.yaml",
+        Path.home() / ".hermes" / "config.yml",
+    ]
+    for p in config_paths:
+        if p.exists():
+            with open(p, "r", encoding="utf-8") as f:
+                return yaml.safe_load(f)
+    return {}
+
+def generate_summary_with_glm(content, title="", max_length=200):
+    """使用 GLM API 生成文章摘要"""
     if not content:
         return ""
-    
+
     content = content.strip()[:2000]
-    
+
     prompt = f"""请用{max_length}字以内总结这篇文章的核心观点，要求：
 1. 一段完整的话，以句号结尾
 2. 不要省略号
@@ -325,7 +338,86 @@ def generate_summary_with_llm(content, title="", max_length=200):
 内容：
 {content}
 """
-    
+
+    try:
+        config = _load_hermes_config()
+        model_cfg = config.get("model", {})
+        base_url = model_cfg.get("base_url", "https://open.bigmodel.cn/api/paas/v4")
+        api_key = model_cfg.get("api_key", "")
+        model_name = model_cfg.get("default", "glm-5-turbo")
+
+        if not api_key:
+            print("   ⚠️ GLM API key 未配置，使用规则生成摘要...")
+            return generate_summary_rule_based(content, title, max_length)
+
+        # 构建 chat completions endpoint
+        chat_url = base_url.rstrip("/")
+        if not chat_url.endswith("/chat/completions"):
+            chat_url = chat_url.rstrip("/") + "/chat/completions"
+
+        print(f"   使用 GLM ({model_name}) 生成摘要...")
+        resp = requests.post(
+            chat_url,
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "model": model_name,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 1024,
+                "temperature": 0.3,
+            },
+            timeout=60,
+        )
+
+        if resp.status_code == 200:
+            msg = resp.json()["choices"][0]["message"]
+            # GLM 思考模型可能把内容放在 reasoning_content 里
+            summary = msg.get("content", "").strip() or msg.get("reasoning_content", "").strip()
+            # 清理摘要
+            summary = re.sub(r'^["\']|["\']$', '', summary)
+            summary = re.sub(r'^(摘要|总结)[:：]?\s*', '', summary)
+            summary = re.sub(r'\.{3}', '', summary)
+            summary = re.sub(r'…', '', summary)
+
+            if len(summary) > 50:
+                if len(summary) > max_length:
+                    truncated = summary[:max_length]
+                    last_period = truncated.rfind('。')
+                    if last_period > max_length * 0.6:
+                        summary = truncated[:last_period+1]
+                    else:
+                        summary = truncated.rstrip() + '。'
+                if not summary.endswith('。'):
+                    summary = summary.rstrip('.') + '。'
+                print(f"   使用 GLM 生成摘要 ({len(summary)}字)")
+                return summary
+        else:
+            print(f"   GLM API 返回错误 ({resp.status_code})，使用规则生成摘要...")
+            return generate_summary_rule_based(content, title, max_length)
+    except Exception as e:
+        print(f"   GLM 不可用: {e}")
+        return generate_summary_rule_based(content, title, max_length)
+
+
+def generate_summary_with_claude(content, title="", max_length=200):
+    """使用 Claude Code 生成文章摘要"""
+    if not content:
+        return ""
+
+    content = content.strip()[:2000]
+
+    prompt = f"""请用{max_length}字以内总结这篇文章的核心观点，要求：
+1. 一段完整的话，以句号结尾
+2. 不要省略号
+3. 突出关键信息
+4. 不要代码和命令行
+5. 直接输出摘要，不要标题
+
+标题：{title}
+
+内容：
+{content}
+"""
+
     try:
         print("   使用 Claude Code 生成摘要...")
         result = subprocess.run(
@@ -334,15 +426,15 @@ def generate_summary_with_llm(content, title="", max_length=200):
             text=True,
             timeout=90
         )
-        
+
         if result.returncode == 0:
             summary = result.stdout.strip()
             # 清理摘要
             summary = re.sub(r'^["\']|["\']$', '', summary)
             summary = re.sub(r'^(摘要|总结)[:：]?\s*', '', summary)
-            summary = re.sub(r'\.\.\.', '', summary)
+            summary = re.sub(r'\.{3}', '', summary)
             summary = re.sub(r'…', '', summary)
-            
+
             if len(summary) > 50:
                 # 如果超过长度限制，智能截断到完整句子
                 if len(summary) > max_length:
@@ -364,9 +456,23 @@ def generate_summary_with_llm(content, title="", max_length=200):
         return generate_summary_rule_based(content, title, max_length)
     except Exception as e:
         print(f"   Claude Code 不可用: {e}")
-    
+
     print("   使用规则生成摘要...")
     return generate_summary_rule_based(content, title, max_length)
+
+
+def generate_summary_with_llm(content, title="", max_length=200, engine="glm"):
+    """使用指定 LLM 引擎生成文章摘要
+
+    engine: "glm" (默认) | "claude" | "rule"
+    """
+    if engine == "claude":
+        return generate_summary_with_claude(content, title, max_length)
+    elif engine == "rule":
+        return generate_summary_rule_based(content, title, max_length)
+    else:
+        # 默认使用 GLM
+        return generate_summary_with_glm(content, title, max_length)
 
 
 def generate_summary_rule_based(content, title="", max_length=200):
@@ -675,6 +781,7 @@ def main():
     parser.add_argument('--notebook', action='store_true', default=True, help='上传到 NotebookLM（默认开启）')
     parser.add_argument('--no-notebook', action='store_true', help='不上传到 NotebookLM')
     parser.add_argument('--summary-length', type=int, default=200, help='摘要长度（默认200字）')
+    parser.add_argument('--summary-engine', choices=['glm', 'claude', 'rule'], default='glm', help='摘要引擎：glm(默认) | claude | rule')
     parser.add_argument('--output-dir', help='自定义文章存储目录，支持 ~ 写法。默认: ~/work/github/media-conent/raw')
     
     args = parser.parse_args()
@@ -697,7 +804,7 @@ def main():
     
     # 2. 生成摘要
     print("\n[2/5] 生成摘要...")
-    summary = generate_summary_with_llm(data['content'], data['title'], args.summary_length)
+    summary = generate_summary_with_llm(data['content'], data['title'], args.summary_length, engine=args.summary_engine)
     print(f"✅ 摘要生成完成 ({len(summary)}字)")
     
     # 3. 创建 Markdown 并保存到本地

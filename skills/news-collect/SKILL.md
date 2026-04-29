@@ -1,7 +1,7 @@
 ---
 name: news-collect
 description: "一站式资讯收集工具 V2：抓取文章 → 生成摘要 → 推送飞书 → 上传NotebookLM → 生成多种格式。支持微信公众号、普通网页、Twitter/X，完全自动化处理。"
-metadata: { "openclaw": { "emoji": "📰", "requires": { "bins": ["python3", "openclaw", "claude"] } } }
+metadata: { "openclaw": { "emoji": "📰", "requires": { "bins": ["python3"] } } }
 ---
 
 # News Collect V2 - 增强版资讯收集工具
@@ -20,22 +20,22 @@ metadata: { "openclaw": { "emoji": "📰", "requires": { "bins": ["python3", "op
 ## 功能特点
 
 - ✅ **一站式处理**：一个命令完成抓取、摘要、推送全流程
-- ✅ **大模型摘要**：使用 Claude Code 生成高质量摘要
+- ✅ **多引擎摘要**：默认使用 GLM API 生成摘要，支持 Claude Code 和纯规则引擎
 - ✅ **支持多源**：微信公众号、普通网页、Twitter/X 自动识别
-- ✅ **自动降级**：如果大模型不可用，自动使用规则生成摘要
+- ✅ **自动降级**：LLM 不可用时自动使用规则生成摘要
 - ✅ **自动推送**：支持飞书 webhook 推送
 - ✅ **NotebookLM 集成**：直接上传并生成多种格式
 
 ## 前置要求
 
 - Python 3.6+
-- OpenClaw CLI 或 Claude Code CLI（用于生成摘要）
-- NotebookLM CLI（新增，Python 3.14 版本）
-- requests 库：`pip install requests beautifulsoup4`
+- Hermes 配置文件中有 GLM API key（`~/.hermes/config.yaml`，默认摘要引擎自动读取）
+- NotebookLM CLI（Python 3.14 版本，可选）
+- requests、beautifulsoup4、pyyaml 库
 
 安装依赖：
 ```bash
-pip install requests beautifulsoup4
+pip3 install requests beautifulsoup4 pyyaml
 ```
 
 ## 使用方法
@@ -100,6 +100,21 @@ python3 scripts/collect_v2.py <URL> --no-push
 ```bash
 python3 scripts/collect_v2.py <URL> --webhook "https://your-webhook-url"
 ```
+
+### 选择摘要引擎
+
+```bash
+# GLM API（默认，速度快）
+python3 scripts/collect_v2.py <URL> --summary-engine glm
+
+# Claude Code（高质量，需安装 claude CLI）
+python3 scripts/collect_v2.py <URL> --summary-engine claude
+
+# 纯规则提取（无 API 调用）
+python3 scripts/collect_v2.py <URL> --summary-engine rule
+```
+
+> GLM API 配置自动从 `~/.hermes/config.yaml` 读取。如果 GLM 不可用（余额不足、网络等），自动降级为规则提取。
 
 ### 调整摘要长度
 
@@ -254,6 +269,7 @@ IMA_API_BASE = "https://ima.qq.com"
 | `--webhook` | 自定义飞书webhook | 内置地址 |
 | `--no-push` | 不推送到飞书，仅输出结果 | False |
 | `--summary-length` | 摘要最大长度 | 200 |
+| `--summary-engine` | 摘要引擎：glm(默认) / claude / rule | glm |
 | `--notebook` | 上传到 NotebookLM | False |
 | `--format` | NotebookLM 生成格式 | - |
 | `--batch` | 批量处理URL文件 | - |
@@ -263,7 +279,7 @@ IMA_API_BASE = "https://ima.qq.com"
 ### 完整流程（NotebookLM 模式）
 
 1. **抓取内容** - 自动识别来源类型并抓取
-2. **生成摘要** - 使用 Claude Code 高质量摘要
+2. **生成摘要** - 默认使用 GLM API，支持 `--summary-engine` 切换
 3. **创建 Markdown** - 标准化格式
 4. **上传 NotebookLM** - 自动创建「AI 资讯」笔记本并上传
 5. **生成格式** - 根据参数生成报告/思维导图/PPT/播客/Quiz
@@ -282,6 +298,42 @@ IMA_API_BASE = "https://ima.qq.com"
 
 > ⚠️ Wiki 同步已从收集流程中移除，改为每日例行维护任务（21:00）统一批量同步。
 
+### 摘要引擎认证失败
+
+脚本的摘要引擎动态读取 `~/.hermes/config.yaml` 中的模型配置：
+
+```python
+model.base_url   → API endpoint
+model.api_key    → 鉴权密钥
+model.default    → 模型名称
+```
+
+**症状及原因：**
+
+| 错误 | 原因 | 处理 |
+|------|------|------|
+| `返回错误 (401)` | API key 无效/过期 | key 错误或失效，需更换 |
+| `返回错误 (429)` | 速率限制/余额不足 | 充值或等待 |
+| `余额不足` | 账户余额用完 | 到对应平台充值 |
+
+**诊断：** 从 config.yaml 中提取配置并测试：
+
+```bash
+# 读取当前配置
+grep -A4 '^model:' ~/.hermes/config.yaml
+
+# 直接用 curl 测试（替换为实际值）
+curl -s "$(grep 'base_url' ~/.hermes/config.yaml | head -1 | awk '{print $2}')/chat/completions" \
+  -H "Authorization: Bearer $(grep 'api_key' ~/.hermes/config.yaml | head -1 | awk '{print $2}')" \
+  -H "Content-Type: application/json" \
+  -d "{\"model\":\"$(grep 'default:' ~/.hermes/config.yaml | head -1 | awk '{print $2}')\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}"
+```
+
+**修复：**
+1. 更换 `~/.hermes/config.yaml` 中 `model.api_key` 为有效的 key
+2. 或切换 provider（修改 `model.provider`、`model.base_url`、`model.api_key`、`model.default`）
+3. 注意：Hermes Agent 本身可能走另一条鉴权路径（如环境变量或 providers 配置），config.yaml 中的 key 失效时脚本会降级为规则摘要
+
 ## 常见问题与解决方案
 
 ### 飞书 Wiki 链接抓取不完整
@@ -296,7 +348,17 @@ IMA_API_BASE = "https://ima.qq.com"
 
 ### NotebookLM 上传失败
 
-中文文件名（含括号等特殊字符）可能导致 `notebooklm source add` 报 `Error:`。解决：先复制为英文文件名再上传。
+**原因1：Google 认证过期**（最常见）
+
+症状：`notebooklm list` 或 `source add` 返回空 `Error:`，`-vv` 日志显示 CSRF token 获取失败。
+
+诊断：`/opt/homebrew/bin/python3.14 -m notebooklm doctor` 确认 auth 状态。
+
+修复：`/opt/homebrew/bin/python3.14 -m notebooklm login`（需浏览器交互）。
+
+**原因2：中文文件名**
+
+含括号等特殊字符可能导致 `Error:`。解决：先复制为 ASCII 文件名再上传。
 
 ```bash
 cp "中文文件名.md" /tmp/english-name.md
