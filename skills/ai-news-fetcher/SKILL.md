@@ -175,12 +175,16 @@ if not env_file.exists() and archive_env.exists():
 GLM API 可能挂起超时（见「已知问题」），cron job 无法等待。使用 `method="rule"` 确保 3 秒内完成。
 
 ```python
-import importlib.util
+import importlib.util, os
 from pathlib import Path
 from dotenv import load_dotenv
 
 scripts_dir = Path.home() / '.hermes/skills/felix-skills/skills/ai-news-fetcher/scripts'
 load_dotenv(scripts_dir / '.env')
+
+# ⚠️ 修复 AI_NEWS_API_BASE 末尾斜杠（否则 URL 双斜杠导致 404）
+api_base = os.getenv('AI_NEWS_API_BASE', 'https://wexinrss.zeabur.app')
+os.environ['AI_NEWS_API_BASE'] = api_base.rstrip('/')
 
 fetch_script = scripts_dir / 'fetch_ai_news.py'
 spec = importlib.util.spec_from_file_location("fetch_ai_news", str(fetch_script))
@@ -189,6 +193,9 @@ spec.loader.exec_module(fetch_module)
 
 # 默认使用大模型分类（已设置 60s 超时，失败自动降级为关键词分类）
 markdown_content = fetch_module.get_news_summary(days=1, classify=True, method="ai")
+
+# ⚠️ execute_code 状态不跨调用持久化，必须写入临时文件
+Path("/tmp/ai_news_wechat_temp.md").write_text(markdown_content, encoding='utf-8')
 ```
 
 **Step 2：用 `execute_code` + `subprocess.run(["bun", ...])` 进行 HTML 转换**
@@ -196,6 +203,9 @@ markdown_content = fetch_module.get_news_summary(days=1, classify=True, method="
 ```python
 import subprocess, json, re
 from pathlib import Path
+
+# ⚠️ 从临时文件读取（execute_code 不保留上一步变量）
+markdown_content = Path("/tmp/ai_news_wechat_temp.md").read_text(encoding='utf-8')
 
 md_path = Path("/tmp/ai_news_wechat_temp.md")
 md_path.write_text(markdown_content, encoding='utf-8')
@@ -280,6 +290,28 @@ media_id = client.create_draft(
 ### ⚠️ `.env` 中 OPENAI_BASE_URL 问题
 
 `OPENAI_BASE_URL= https://open.bigmodel.cn/api/coding/paas/v4` 值前有多余空格，且 `coding/paas/v4` 是编码专用端点（可能返回空响应）。标准端点为 `https://open.bigmodel.cn/api/paas/v4`。读取时需 `.strip()` 处理空格。
+
+### ⚠️ `AI_NEWS_API_BASE` 末尾斜杠导致 404
+
+`.env` 中 `AI_NEWS_API_BASE=http://8.130.209.77:8081/` 末尾带 `/`，脚本拼接 URL 时产生双斜杠 `http://8.130.209.77:8081//api/query`，返回 404。
+
+**修复**：加载环境变量后立即 `.rstrip('/')`：
+```python
+api_base = os.getenv('AI_NEWS_API_BASE', 'https://wexinrss.zeabur.app')
+os.environ['AI_NEWS_API_BASE'] = api_base.rstrip('/')
+```
+
+### ⚠️ `execute_code` 状态不跨调用持久化
+
+每个 `execute_code` 调用在独立沙箱中运行，变量（如 `markdown_content`）不会保留到下一次调用。**必须将中间结果写入临时文件**（如 `/tmp/ai_news_wechat_temp.md`），下一步骤从文件读取。
+
+```python
+# 写入中间结果
+Path("/tmp/ai_news_wechat_temp.md").write_text(markdown_content, encoding='utf-8')
+
+# 下一个 execute_code 调用中读取
+markdown_content = Path("/tmp/ai_news_wechat_temp.md").read_text(encoding='utf-8')
+```
 
 ### ⚠️ `execute_code` 必须用于 cron job
 
