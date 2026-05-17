@@ -477,6 +477,8 @@ cp "中文文件名.md" /tmp/english-name.md
 /opt/homebrew/bin/python3.14 -m notebooklm source add /tmp/english-name.md
 ```
 
+> **实测**：`notebooklm source add` 对大多数中文文件名（含 `+`、`：`、`？` 等）可直接上传成功，无需 ASCII 转换。只有在明确报错时才需要 ASCII workaround。建议先尝试直接上传。
+
 **原因3：间歇性连接失败（CLI 返回空 `Error:`）**
 
 `notebooklm source list`、`source add` 等操作偶发返回空 `Error:`，`-vv` 日志显示 `Fetching CSRF and session tokens` 后立即失败。`auth check --test` 仍通过。这是 Google 端的瞬态限流或会话冲突。

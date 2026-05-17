@@ -85,6 +85,70 @@ notebooklm source delete "<full-uuid>"
 - **AI 资讯** notebook: `87c6e099-77f1-4727-8d82-92ac00e29cf7`
 - 始终使用完整 ID，不要用名称匹配（不可靠）
 
-## 5. Source 数量上限
+## 5. 实战比对脚本（Python/execute_code）
+
+前缀匹配在实际执行中的工作模式：
+
+```python
+from hermes_tools import terminal
+
+# 1. 获取 NB source titles（截断格式如 "2026-05-14_75K…"）
+nb_result = terminal("notebooklm source list 2>&1")
+nb_prefixes = set()
+for line in nb_output.split('\n'):
+    if '│' in line and ('📝' in line or '❓' in line):
+        parts = [p.strip() for p in line.split('│')]
+        if len(parts) >= 3:
+            title = parts[2].strip()
+            if title and title != 'Title':
+                clean = title.rstrip('…').strip()  # 去掉截断标记
+                if clean:
+                    nb_prefixes.add(clean)
+
+# 2. 获取本地文件
+result = terminal("ls /Users/felix/work/github/media-conent/raw/2026-*_*.md")
+local_files = [line.strip().split('/')[-1] for line in result['output'].strip().split('\n') if line.strip()]
+
+# 3. 前缀比对：检查本地文件名是否以 NB 前缀开头
+missing = []
+for f in local_files:
+    found = any(f.startswith(p) or p.startswith(f[:len(p)])) for p in nb_prefixes)
+    if not found:
+        missing.append(f)
+```
+
+**注意**：NB 标题在终端中被截断到约 20 个字符（含日期前缀），所以前缀长度约为 16-20 字符。中文字符每个占更多列宽，实际可见前缀可能更短。
+
+## 6. 飞书维护报告格式
+
+每日维护汇总报告发送到飞书时，用户指定了严格的格式要求：
+
+- ❌ **不要**贴终端原始输出（git log、git status 等）
+- ❌ **不要**用大段代码块包裹报告
+- ✅ 使用 emoji + **粗体标题** + 短列表
+- ✅ 每个维护项一行结果
+
+格式模板：
+```
+🔧 **每日维护巡检报告** — YYYY-MM-DD
+
+✅ **Wiki同步**: 上传 N 篇文章 / 无新增文章
+✅ **Git提交**: 已推送 / 无变更
+⚠️ **IMA清理**: 清理 X 项 / 无异常
+✅ **NotebookLM补传**: 补传 N 篇 / 无遗漏
+📊 **总结**: 一句话概括
+```
+
+发送方式（使用 temp file 避免 shell 转义问题）：
+```python
+import tempfile, os
+with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+    f.write(report_markdown)
+    tmp = f.name
+terminal(f'lark-cli im +messages-send --chat-id oc_a6df6042719de06719348cc64642cb88 --markdown "$(cat {tmp})" --as bot')
+os.unlink(tmp)
+```
+
+## 7. Source 数量上限
 
 Google NotebookLM 单个 notebook 的 source 数量上限约为 **300**。当接近上限时，需要清理旧 source 或拆分 notebook。
