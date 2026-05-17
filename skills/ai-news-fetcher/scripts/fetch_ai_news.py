@@ -128,7 +128,7 @@ def classify_news_with_ai(news_list):
         client = OpenAI(
             api_key=OPENAI_API_KEY,
             base_url=OPENAI_BASE_URL,
-            timeout=httpx.Timeout(60.0, connect=10.0),
+            timeout=httpx.Timeout(120.0, connect=15.0),
         )
         
         response = client.chat.completions.create(
