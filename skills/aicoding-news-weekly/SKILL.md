@@ -22,10 +22,11 @@ aicoding-news-weekly/
 
 ## 执行步骤
 
-使用绝对路径运行（cron 任务和手动执行都用此路径）：
+先切换到 skill 目录，再运行脚本：
 
 ```bash
-python /Users/felix/.hermes/skills/felix-skills/skills/aicoding-news-weekly/scripts/generate_weekly.py --weixin
+cd aicoding-news-weekly
+python scripts/generate_weekly.py --weixin
 ```
 
 该脚本会自动：
@@ -49,31 +50,32 @@ python /Users/felix/.hermes/skills/felix-skills/skills/aicoding-news-weekly/scri
 ## 自定义选项
 
 ```bash
-SCRIPT="/Users/felix/.hermes/skills/felix-skills/skills/aicoding-news-weekly/scripts/generate_weekly.py"
+# 先切换到 skill 目录
+cd aicoding-news-weekly
 
 # 生成本周周报（默认）
-python $SCRIPT
+python scripts/generate_weekly.py
 
 # 生成指定日期的周报
-python $SCRIPT --date 2026-01-15
+python scripts/generate_weekly.py --date 2026-01-15
 
 # 生成指定日期范围的周报
-python $SCRIPT --start 2026-01-01 --end 2026-01-07
+python scripts/generate_weekly.py --start 2026-01-01 --end 2026-01-07
 
 # 自定义输出目录（文件名自动生成）
-python $SCRIPT --output-dir ~/Desktop/weekly
+python scripts/generate_weekly.py --output-dir ~/Desktop/weekly
 
 # 自定义输出文件完整路径（优先级最高）
-python $SCRIPT --output ~/Desktop/my-report.md
+python scripts/generate_weekly.py --output ~/Desktop/my-report.md
 
 # 生成周报后调用公众号发布工具（复制 HTML 到剪贴板）
-python $SCRIPT --publish
+python scripts/generate_weekly.py --publish
 
 # 生成周报后生成公众号预览网页（在浏览器中打开）
-python $SCRIPT --preview
+python scripts/generate_weekly.py --preview
 
 # 生成周报后直接发布到公众号（创建草稿）
-python $SCRIPT --weixin
+python scripts/generate_weekly.py --weixin
 ```
 
 ## 公众号发布集成
@@ -153,7 +155,7 @@ pip install pyperclip
 ## 注意事项
 
 - **不要降级**：必须按完整流程执行（获取数据 → 生成周报 → 发布到公众号），不得简化步骤或降低质量。遇到问题直接报告，不要自行降级处理。
-- **脚本路径**：实际位于 `scripts/aicoding-news-weekly/` 子目录下，不是 skill 根目录。cron 任务和手动执行都必须用绝对路径。
+- **脚本路径**：实际位于 `scripts/` 子目录下，执行时需先 `cd` 到 skill 根目录，再使用相对路径 `scripts/generate_weekly.py` 运行。
 - **输出位置**：默认保存到 `output/` 目录（已加入 `.gitignore`），可通过 `--output-dir` 或 `--output` 自定义
 - 如果周报文件已存在，脚本会自动覆盖旧文件
 - 日期格式必须严格遵循 `YYYY-MM-DD` 格式

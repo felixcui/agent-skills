@@ -5,6 +5,8 @@ import argparse
 from pathlib import Path
 from datetime import datetime, timedelta
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from typing import Dict, List, Optional
 from collections import defaultdict
 
@@ -37,6 +39,15 @@ class FeishuConfigError(Exception):
     """飞书凭证配置错误"""
     pass
 
+def _create_session() -> requests.Session:
+    """创建带自动重试的 requests Session"""
+    session = requests.Session()
+    retry = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
 def check_feishu_config():
     """检查飞书凭证是否已配置"""
     if not FEISHU_CONFIG["APP_ID"] or not FEISHU_CONFIG["APP_SECRET"]:
@@ -63,7 +74,8 @@ def get_tenant_access_token() -> str:
         "app_secret": FEISHU_CONFIG["APP_SECRET"]
     }
     
-    response = requests.post(url, json=payload)
+    session = _create_session()
+    response = session.post(url, json=payload, timeout=30)
     response.raise_for_status()
     return response.json()["tenant_access_token"]
 
@@ -148,6 +160,7 @@ def get_news_list(start_date: str = None, end_date: str = None, debug: bool = Fa
         }
         
         # 分页获取所有数据
+        session = _create_session()
         all_items = []
         page_token = None
         page_count = 0
@@ -186,7 +199,7 @@ def get_news_list(start_date: str = None, end_date: str = None, debug: bool = Fa
             if page_token:
                 body["page_token"] = page_token
 
-            response = requests.post(url, headers=headers, json=body)
+            response = session.post(url, headers=headers, json=body, timeout=30)
             response.raise_for_status()
             feishu_data = response.json()
             
