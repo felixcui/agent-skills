@@ -19,7 +19,8 @@ from bs4 import BeautifulSoup
 # ============ 配置 ============
 WEBHOOK_URL = "https://www.feishu.cn/flow/api/trigger-webhook/4ebcdc4fd26c38187fdd74434d17a916"
 NOTEBOOKLM_CMD = "notebooklm"
-NOTEBOOK_NAME = "AI 资讯"
+NOTEBOOK_NAME = "AI 资讯 V2"
+NOTEBOOK_ID = "8c8a9ffe-89c1-4219-a6ee-cd2f9bb4f3e0"
 
 # IMA 知识库配置
 IMA_KB_ENABLED = True
@@ -641,7 +642,7 @@ def upload_to_notebooklm(file_path, title, max_retries=3, retry_delay=3):
 
         for attempt in range(1, max_retries + 1):
             result = subprocess.run(
-                [NOTEBOOKLM_CMD, 'source', 'add', str(tmp_path), '--title', title],
+                [NOTEBOOKLM_CMD, 'source', 'add', str(tmp_path), '--title', title, '--notebook', NOTEBOOK_ID],
                 capture_output=True,
                 text=True,
                 timeout=60
